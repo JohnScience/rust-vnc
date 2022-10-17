@@ -90,8 +90,8 @@ impl Event {
                     send!(
                         tx_events,
                         Event::SetColourMap {
-                            first_colour: first_colour,
-                            colours: colours
+                            first_colour,
+                            colours
                         }
                     )
                 }
@@ -125,7 +125,7 @@ impl Event {
                                     rectangle.width,
                                     rectangle.height,
                                 );
-                                send!(tx_events, Event::CopyPixels { src: src, dst: dst })
+                                send!(tx_events, Event::CopyPixels { src, dst })
                             }
                             protocol::Encoding::Zrle => {
                                 let length = try!(stream.read_u32::<BigEndian>());
@@ -164,8 +164,8 @@ impl Event {
                                     Event::SetCursor {
                                         size: (rectangle.width, rectangle.height),
                                         hotspot: (rectangle.x_position, rectangle.y_position),
-                                        pixels: pixels,
-                                        mask_bits: mask_bits
+                                        pixels,
+                                        mask_bits
                                     }
                                 )
                             }
@@ -222,7 +222,7 @@ impl Client {
             }
         };
 
-        if security_types.len() == 0 {
+        if security_types.is_empty() {
             let reason = try!(String::read_from(&mut stream));
             debug!("<- {:?}", reason);
             return Err(Error::Server(reason));
@@ -320,7 +320,7 @@ impl Client {
             }
         }
 
-        let client_init = protocol::ClientInit { shared: shared };
+        let client_init = protocol::ClientInit { shared };
         debug!("-> {:?}", client_init);
         try!(protocol::ClientInit::write_to(&client_init, &mut stream));
 
@@ -341,14 +341,14 @@ impl Client {
         }
 
         Ok(Client {
-            stream: stream,
+            stream,
             events: rx_events,
             name: server_init.name,
             size: (
                 server_init.framebuffer_width,
                 server_init.framebuffer_height,
             ),
-            format: format,
+            format,
         })
     }
 
@@ -371,7 +371,7 @@ impl Client {
 
     pub fn request_update(&mut self, rect: protocol::Rect, incremental: bool) -> Result<()> {
         let update_req = protocol::C2S::FramebufferUpdateRequest {
-            incremental: incremental,
+            incremental,
             x_position: rect.left,
             y_position: rect.top,
             width: rect.width,
@@ -384,8 +384,8 @@ impl Client {
 
     pub fn send_key_event(&mut self, down: bool, key: u32) -> Result<()> {
         let key_event = protocol::C2S::KeyEvent {
-            down: down,
-            key: key,
+            down,
+            key,
         };
         debug!("-> {:?}", key_event);
         try!(protocol::C2S::write_to(&key_event, &mut self.stream));

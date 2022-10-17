@@ -78,7 +78,7 @@ impl Proxy {
             }
         };
 
-        if security_types.len() == 0 {
+        if security_types.is_empty() {
             let reason = try!(String::read_from(&mut server_stream));
             debug!("c<-s {:?}", reason);
             try!(String::write_to(&reason, &mut client_stream));

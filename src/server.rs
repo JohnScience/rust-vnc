@@ -271,7 +271,7 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
     fn new(validation_data: &'b ValidationData) -> Self {
         FramebufferUpdateBuilder {
             updates: Vec::new(),
-            validation_data: validation_data,
+            validation_data,
         }
     }
 
@@ -280,8 +280,8 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
     /// Panics if length of pixel data does not match rectangle size.
     pub fn add_raw_pixels(&mut self, rect: protocol::Rect, pixel_data: &'a [u8]) -> &mut Self {
         let update = Update::Raw {
-            rect: rect,
-            pixel_data: pixel_data,
+            rect,
+            pixel_data,
         };
 
         update.check(self.validation_data);
@@ -297,9 +297,9 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
         src_y_position: u16,
     ) -> &mut Self {
         let update = Update::CopyRect {
-            dst: dst,
-            src_x_position: src_x_position,
-            src_y_position: src_y_position,
+            dst,
+            src_x_position,
+            src_y_position,
         };
 
         update.check(self.validation_data);
@@ -318,8 +318,8 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
         zlib_data: &'a [u8],
     ) -> &mut Self {
         let update = Update::Zrle {
-            rect: rect,
-            zlib_data: zlib_data,
+            rect,
+            zlib_data,
         };
 
         update.check(self.validation_data);
@@ -342,8 +342,8 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
         let update = Update::SetCursor {
             size: (width, height),
             hotspot: (hotspot_x, hotspot_y),
-            pixels: pixels,
-            mask_bits: mask_bits,
+            pixels,
+            mask_bits,
         };
 
         update.check(self.validation_data);
@@ -354,8 +354,8 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
     /// Adds notification about framebuffer resize.
     pub fn add_desktop_size(&mut self, width: u16, height: u16) -> &mut Self {
         let update = Update::DesktopSize {
-            width: width,
-            height: height,
+            width,
+            height,
         };
 
         update.check(self.validation_data);
@@ -365,7 +365,7 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
 
     /// Adds confirmation of support of pseudo-encoding.
     pub fn add_pseudo_encoding(&mut self, encoding: protocol::Encoding) -> &mut Self {
-        let update = Update::Encoding { encoding: encoding };
+        let update = Update::Encoding { encoding };
 
         update.check(self.validation_data);
         self.updates.push(update);
@@ -469,15 +469,15 @@ impl Server {
         let server_init = protocol::ServerInit {
             framebuffer_width: width,
             framebuffer_height: height,
-            pixel_format: pixel_format,
-            name: name,
+            pixel_format,
+            name,
         };
 
         try!(server_init.write_to(&mut stream));
 
         Ok((
             Server {
-                stream: stream,
+                stream,
                 validation_data: ValidationData::new(&pixel_format),
             },
             client_init.shared,

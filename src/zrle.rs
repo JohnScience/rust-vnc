@@ -12,13 +12,13 @@ struct ZlibReader<'a> {
 impl<'a> ZlibReader<'a> {
     fn new(decompressor: flate2::Decompress, input: &'a [u8]) -> ZlibReader<'a> {
         ZlibReader {
-            decompressor: decompressor,
-            input: input,
+            decompressor,
+            input,
         }
     }
 
     fn into_inner(self) -> Result<flate2::Decompress> {
-        if self.input.len() == 0 {
+        if self.input.is_empty() {
             Ok(self.decompressor)
         } else {
             Err(Error::Unexpected("leftover ZRLE byte data"))
@@ -58,7 +58,7 @@ struct BitReader<T: Read> {
 impl<T: Read> BitReader<T> {
     fn new(reader: T) -> BitReader<T> {
         BitReader {
-            reader: reader,
+            reader,
             buffer: 0,
             position: 8,
         }
@@ -137,7 +137,7 @@ impl Decoder {
     where
         F: FnMut(protocol::Rect, Vec<u8>) -> Result<bool>,
     {
-        fn read_run_length(reader: &mut Read) -> Result<usize> {
+        fn read_run_length(reader: &mut dyn Read) -> Result<usize> {
             let mut run_length_part = try!(reader.read_u8());
             let mut run_length = 1 + run_length_part as usize;
             while run_length_part == 255 {
@@ -148,7 +148,7 @@ impl Decoder {
         }
 
         fn copy_true_color(
-            reader: &mut Read,
+            reader: &mut dyn Read,
             pixels: &mut Vec<u8>,
             pad: bool,
             compressed_bpp: usize,
@@ -170,7 +170,7 @@ impl Decoder {
             | (format.green_max as u32) << format.green_shift
             | (format.blue_max as u32) << format.blue_shift;
         let (compressed_bpp, pad_pixel) =
-            if format.bits_per_pixel == 32 && format.true_colour == true && format.depth <= 24 {
+            if format.bits_per_pixel == 32 && format.true_colour && format.depth <= 24 {
                 if pixel_mask & 0x000000ff == 0 {
                     (3, !format.big_endian)
                 } else if pixel_mask & 0xff000000 == 0 {
@@ -235,12 +235,12 @@ impl Decoder {
                             copy_indexed(&palette, &mut pixels, bpp, 0)
                         }
                     }
-                    (false, 2) | (false, 3...4) | (false, 5...16) => {
+                    (false, 2) | (false, 3..=4) | (false, 5..=16) => {
                         // Indexed pixels
                         let bits_per_index = match palette_size {
                             2 => 1,
-                            3...4 => 2,
-                            5...16 => 4,
+                            3..=4 => 2,
+                            5..=16 => 4,
                             _ => unreachable!(),
                         };
                         for _ in 0..height {
@@ -271,7 +271,7 @@ impl Decoder {
                             count += run_length;
                         }
                     }
-                    (true, 2...127) => {
+                    (true, 2..=127) => {
                         // Indexed RLE
                         let mut count = 0;
                         while count < pixel_count {
