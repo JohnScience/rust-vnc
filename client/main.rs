@@ -93,7 +93,7 @@ fn mask_cursor(vnc_in_format: vnc::PixelFormat, in_pixels: Vec<u8>, mask_pixels:
 
     fn read_color<R: Read>(reader: &mut R, size: usize, masks: &PixelMasks) ->
             IoResult<Color> {
-        let packed = try!(reader.read_uint::<NativeEndian>(size));
+        let packed = reader.read_uint::<NativeEndian>(size)?;
         Ok(Color::RGB(
             ((packed as u32 & masks.rmask) >> masks.rmask.trailing_zeros()) as u8,
             ((packed as u32 & masks.gmask) >> masks.gmask.trailing_zeros()) as u8,
@@ -119,9 +119,8 @@ fn mask_cursor(vnc_in_format: vnc::PixelFormat, in_pixels: Vec<u8>, mask_pixels:
             Err(_) => unreachable!(),
             Ok(in_color) => {
                 let mask = mask_cursor.read_u8().unwrap();
-                let Color { r,g,b,mut a } = in_color;
-                a = if mask != 0 { 255 } else { 0 };
-                let out_color = Color { r,g,b,a };
+                let Color { r,g,b, a: _a } = in_color;
+                let out_color = Color { r,g,b,a: if mask != 0 { 255 } else { 0 } };
                 write_color(&mut out_cursor, out_size, &out_masks, out_color).unwrap();
             }
         }
@@ -171,7 +170,7 @@ fn main() {
 
     let sdl_context = sdl2::init().unwrap();
     let sdl_video = sdl_context.video().unwrap();
-    let mut sdl_timer = sdl_context.timer().unwrap();
+    let sdl_timer = sdl_context.timer().unwrap();
     let mut sdl_events = sdl_context.event_pump().unwrap();
 
     info!("connecting to {}:{}", host, port);
@@ -497,7 +496,7 @@ fn main() {
             vnc.poke_qemu().unwrap();
             qemu_next_update = sdl_timer.ticks() + qemu_network_rtt / 2;
         } else {
-            vnc.request_update(vnc::Rect { left: 0, top: 0, width: width, height: height},
+            vnc.request_update(vnc::Rect { left: 0, top: 0, width, height },
                                incremental).unwrap();
 
         }
