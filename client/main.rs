@@ -103,15 +103,12 @@ fn mask_cursor(vnc_in_format: vnc::PixelFormat, in_pixels: Vec<u8>, mask_pixels:
 
     fn write_color<W: Write>(writer: &mut W, size: usize, masks: &PixelMasks, color: Color) ->
             IoResult<()> {
-        let packed = match color {
-            Color::RGBA(r, g, b, a) => {
-                (((r as u32) << masks.rmask.trailing_zeros()) & masks.rmask) |
-                (((g as u32) << masks.gmask.trailing_zeros()) & masks.gmask) |
-                (((b as u32) << masks.bmask.trailing_zeros()) & masks.bmask) |
-                (((a as u32) << masks.amask.trailing_zeros()) & masks.amask)
-            },
-            _ => unreachable!()
-        };
+        let Color { r,g,b,a } = color;
+        let packed = 
+            (((r as u32) << masks.rmask.trailing_zeros()) & masks.rmask) |
+            (((g as u32) << masks.gmask.trailing_zeros()) & masks.gmask) |
+            (((b as u32) << masks.bmask.trailing_zeros()) & masks.bmask) |
+            (((a as u32) << masks.amask.trailing_zeros()) & masks.amask);
         writer.write_uint::<NativeEndian>(packed as u64, size).unwrap();
         Ok(())
     }
@@ -122,10 +119,9 @@ fn mask_cursor(vnc_in_format: vnc::PixelFormat, in_pixels: Vec<u8>, mask_pixels:
             Err(_) => unreachable!(),
             Ok(in_color) => {
                 let mask = mask_cursor.read_u8().unwrap();
-                let out_color = match in_color {
-                    Color::RGB (r, g, b) | Color::RGBA(r, g, b, _) =>
-                        Color::RGBA(r, g, b, if mask != 0 { 255 } else { 0 })
-                };
+                let Color { r,g,b,mut a } = in_color;
+                a = if mask != 0 { 255 } else { 0 };
+                let out_color = Color { r,g,b,a };
                 write_color(&mut out_cursor, out_size, &out_masks, out_color).unwrap();
             }
         }
@@ -262,9 +258,10 @@ fn main() {
                                   width as u32, height as u32).build().unwrap();
     sdl_video.text_input().start();
 
-    let mut renderer = window.renderer().build().unwrap();
-    let mut screen = renderer.create_texture_streaming(
-        sdl_format, (width as u32, height as u32)).unwrap();
+    let mut canvas = window.into_canvas().build().unwrap();
+    let texture_creator = canvas.texture_creator();
+    let mut screen = texture_creator.create_texture_streaming(
+        sdl_format, width as u32, height as u32).unwrap();
 
     let mut cursor = None;
     let mut cursor_rect = None;
@@ -275,7 +272,7 @@ fn main() {
 
     let mut key_ctrl = false;
 
-    renderer.clear();
+    canvas.clear();
     vnc.request_update(vnc::Rect { left: 0, top: 0, width: width, height: height},
                        false).unwrap();
 
@@ -287,7 +284,7 @@ fn main() {
         const FRAME_MS: u32 = 1000 / 60;
         let ticks = sdl_timer.ticks();
 
-        renderer.present();
+        canvas.present();
 
         for event in vnc.poll_iter() {
             use vnc::client::Event;
@@ -301,32 +298,32 @@ fn main() {
                 Event::Resize(new_width, new_height) => {
                     width  = new_width;
                     height = new_height;
-                    renderer.window_mut().unwrap().set_size(width as u32, height as u32);
-                    screen = renderer.create_texture_streaming(
-                        sdl_format, (width as u32, height as u32)).unwrap();
+                    canvas.window_mut().set_size(width as u32, height as u32).unwrap();
+                    screen = texture_creator.create_texture_streaming(
+                        sdl_format, width as u32, height as u32).unwrap();
                     incremental = false;
                 },
                 Event::PutPixels(vnc_rect, ref pixels) => {
-                    let sdl_rect = SdlRect::new_unwrap(
+                    let sdl_rect = SdlRect::new(
                         vnc_rect.left as i32, vnc_rect.top as i32,
                         vnc_rect.width as u32, vnc_rect.height as u32);
                     screen.update(Some(sdl_rect), pixels,
                         sdl_format.byte_size_of_pixels(vnc_rect.width as usize)).unwrap();
-                    renderer.copy(&screen, Some(sdl_rect), Some(sdl_rect));
+                    canvas.copy(&screen, Some(sdl_rect), Some(sdl_rect)).unwrap();
                     incremental |= vnc_rect == vnc::Rect { left: 0, top: 0,
                                                            width: width, height: height };
                 },
                 Event::CopyPixels { src: vnc_src, dst: vnc_dst } => {
-                    let sdl_src = SdlRect::new_unwrap(
+                    let sdl_src = SdlRect::new(
                         vnc_src.left as i32, vnc_src.top as i32,
                         vnc_src.width as u32, vnc_src.height as u32);
-                    let sdl_dst = SdlRect::new_unwrap(
+                    let sdl_dst = SdlRect::new(
                         vnc_dst.left as i32, vnc_dst.top as i32,
                         vnc_dst.width as u32, vnc_dst.height as u32);
-                    let pixels = renderer.read_pixels(Some(sdl_src), sdl_format).unwrap();
+                    let pixels = canvas.read_pixels(Some(sdl_src), sdl_format).unwrap();
                     screen.update(Some(sdl_dst), &pixels,
                         sdl_format.byte_size_of_pixels(vnc_dst.width as usize)).unwrap();
-                    renderer.copy(&screen, Some(sdl_dst), Some(sdl_dst));
+                    canvas.copy(&screen, Some(sdl_dst), Some(sdl_dst)).unwrap();
                 },
                 Event::EndOfFrame => {
                     if qemu_hacks {
@@ -364,8 +361,8 @@ fn main() {
                         }
                         let (sdl_cursor_format, cursor_pixels) =
                             mask_cursor(vnc_format, pixels, mask_pixels);
-                        let mut new_cursor = renderer.create_texture_streaming(
-                            sdl_cursor_format, (width as u32, height as u32)).unwrap();
+                        let mut new_cursor = texture_creator.create_texture_streaming(
+                            sdl_cursor_format, width as u32, height as u32).unwrap();
                         new_cursor.update(None, &cursor_pixels,
                             sdl_cursor_format.byte_size_of_pixels(width as usize)).unwrap();
                         new_cursor.set_blend_mode(sdl2::render::BlendMode::Blend);
@@ -382,7 +379,7 @@ fn main() {
 
         match cursor_rect {
             Some(cursor_rect) =>
-                renderer.copy(&screen, Some(cursor_rect), Some(cursor_rect)),
+                canvas.copy(&screen, Some(cursor_rect), Some(cursor_rect)).unwrap(),
             None => ()
         }
 
@@ -390,19 +387,19 @@ fn main() {
             Some(ref cursor) => {
                 sdl_context.mouse().show_cursor(false);
 
-                let raw_cursor_rect = SdlRect::new_unwrap(
+                let raw_cursor_rect = SdlRect::new(
                     mouse_x as i32 - hotspot_x as i32, mouse_y as i32 - hotspot_y as i32,
                     cursor.query().width as u32, cursor.query().height as u32);
-                let screen_rect = SdlRect::new_unwrap(
+                let screen_rect = SdlRect::new(
                     0, 0, width as u32, height as u32);
                 let clipped_cursor_rect = raw_cursor_rect & screen_rect;
                 if let Some(clipped_cursor_rect) = clipped_cursor_rect {
-                    let source_rect = SdlRect::new_unwrap(
+                    let source_rect = SdlRect::new(
                         clipped_cursor_rect.x() - raw_cursor_rect.x(),
                         clipped_cursor_rect.y() - raw_cursor_rect.y(),
                         clipped_cursor_rect.width(),
                         clipped_cursor_rect.height());
-                    renderer.copy(&cursor, Some(source_rect), Some(clipped_cursor_rect));
+                    canvas.copy(&cursor, Some(source_rect), Some(clipped_cursor_rect)).unwrap();
                 }
                 cursor_rect = clipped_cursor_rect;
             },
@@ -414,15 +411,15 @@ fn main() {
         }
 
         for event in sdl_events.wait_timeout_iter(sdl_timer.ticks() - ticks + FRAME_MS) {
-            use sdl2::event::{Event, WindowEventId};
+            use sdl2::event::{Event, WindowEvent};
 
             match event {
                 Event::Quit { .. } => break 'running,
-                Event::Window { win_event_id: WindowEventId::SizeChanged, .. } => {
-                    let screen_rect = SdlRect::new_unwrap(
+                Event::Window { win_event: WindowEvent::SizeChanged(_,_), .. } => {
+                    let screen_rect = SdlRect::new(
                         0, 0, width as u32, height as u32);
-                    renderer.copy(&screen, None, Some(screen_rect));
-                    renderer.present()
+                    canvas.copy(&screen, None, Some(screen_rect)).unwrap();
+                    canvas.present()
                 },
                 _ => ()
             }
@@ -457,17 +454,17 @@ fn main() {
                 },
                 Event::MouseButtonDown { x, y, mouse_btn, .. } |
                 Event::MouseButtonUp { x, y, mouse_btn, .. } => {
-                    use sdl2::mouse::Mouse;
+                    use sdl2::mouse::MouseButton;
                     mouse_x = x as u16;
                     mouse_y = y as u16;
                     let mouse_button =
                         match mouse_btn {
-                            Mouse::Left       => 0x01,
-                            Mouse::Middle     => 0x02,
-                            Mouse::Right      => 0x04,
-                            Mouse::X1         => 0x20,
-                            Mouse::X2         => 0x40,
-                            Mouse::Unknown(_) => 0x00
+                            MouseButton::Left       => 0x01,
+                            MouseButton::Middle     => 0x02,
+                            MouseButton::Right      => 0x04,
+                            MouseButton::X1         => 0x20,
+                            MouseButton::X2         => 0x40,
+                            MouseButton::Unknown => 0x00
                         };
                     match event {
                         Event::MouseButtonDown { .. } => mouse_buttons |= mouse_button,
