@@ -1,8 +1,8 @@
-use std::io::Write;
-use std::net::{TcpStream, Shutdown};
 use byteorder::{BigEndian, WriteBytesExt};
-use ::{protocol, Result};
 use protocol::Message;
+use std::io::Write;
+use std::net::{Shutdown, TcpStream};
+use {protocol, Result};
 
 /// Definitions of events received by server from client.
 #[derive(Debug)]
@@ -54,10 +54,7 @@ pub enum Event {
     /// now pressed, and false if it is now released. The key itself is specified using the "keysym"
     /// values defined by the X Window System, even if the client or server is not running the X
     /// Window System.
-    KeyEvent {
-        down: bool,
-        key: u32,
-    },
+    KeyEvent { down: bool, key: u32 },
 
     /// A `PointerEvent` message indicates either pointer movement or a pointer button press or
     /// release. The pointer is now at (`x_position`, `y_position`), and the current state of
@@ -71,7 +68,7 @@ pub enum Event {
     PointerEvent {
         button_mask: u8,
         x_position: u16,
-        y_position: u16
+        y_position: u16,
     },
 
     /// RFB provides limited support for synchronizing the "cut buffer" of selected text between
@@ -125,25 +122,36 @@ enum Update<'a> {
         width: u16,
         height: u16,
     },
-    Encoding { encoding: protocol::Encoding },
+    Encoding {
+        encoding: protocol::Encoding,
+    },
 }
 
 impl<'a> Update<'a> {
     /// Checks validity of given `Update`. Panics if it is not valid.
     fn check(&self, validation_data: &ValidationData) {
         match *self {
-            Update::Raw { ref rect, pixel_data } => {
-                let expected_num_bytes = rect.width as usize *
-                                         rect.height as usize *
-                                         validation_data.bytes_per_pixel as usize;
+            Update::Raw {
+                ref rect,
+                pixel_data,
+            } => {
+                let expected_num_bytes = rect.width as usize
+                    * rect.height as usize
+                    * validation_data.bytes_per_pixel as usize;
                 if expected_num_bytes != pixel_data.len() {
-                    panic!("Expected data length for rectangle {:?} is {} while given {}",
-                           rect,
-                           expected_num_bytes,
-                           pixel_data.len());
+                    panic!(
+                        "Expected data length for rectangle {:?} is {} while given {}",
+                        rect,
+                        expected_num_bytes,
+                        pixel_data.len()
+                    );
                 }
             }
-            Update::CopyRect { dst: _, src_x_position: _, src_y_position: _ } => {
+            Update::CopyRect {
+                dst: _,
+                src_x_position: _,
+                src_y_position: _,
+            } => {
                 // No check is needed
             }
             Update::Zrle { rect: _, zlib_data } => {
@@ -151,26 +159,37 @@ impl<'a> Update<'a> {
                     panic!("Maximal length of compressed data is {}", u32::max_value());
                 }
             }
-            Update::SetCursor { size: (width, height), hotspot: _, pixels, mask_bits } => {
+            Update::SetCursor {
+                size: (width, height),
+                hotspot: _,
+                pixels,
+                mask_bits,
+            } => {
                 // Check pixel data length
-                let expected_num_bytes = width as usize *
-                                         height as usize *
-                                         validation_data.bytes_per_pixel as usize;
+                let expected_num_bytes =
+                    width as usize * height as usize * validation_data.bytes_per_pixel as usize;
                 if expected_num_bytes != pixels.len() {
-                    panic!("Expected data length is {} while given {}",
-                           expected_num_bytes,
-                           pixels.len());
+                    panic!(
+                        "Expected data length is {} while given {}",
+                        expected_num_bytes,
+                        pixels.len()
+                    );
                 }
 
                 // Check bit mask length
                 let expected_num_bytes = ((width as usize + 7) / 8) * height as usize;
                 if expected_num_bytes != mask_bits.len() {
-                    panic!("Expected bit mask length is {} while given {}",
-                           expected_num_bytes,
-                           mask_bits.len());
+                    panic!(
+                        "Expected bit mask length is {} while given {}",
+                        expected_num_bytes,
+                        mask_bits.len()
+                    );
                 }
             }
-            Update::DesktopSize { width: _, height: _ } => {
+            Update::DesktopSize {
+                width: _,
+                height: _,
+            } => {
                 // No check is needed
             }
             Update::Encoding { encoding: _ } => {
@@ -182,24 +201,39 @@ impl<'a> Update<'a> {
     /// Serializes `Update` to given stream.
     fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
         match *self {
-            Update::Raw { ref rect, pixel_data } => {
+            Update::Raw {
+                ref rect,
+                pixel_data,
+            } => {
                 try!(rect.write_to(writer));
                 try!(protocol::Encoding::Raw.write_to(writer));
                 try!(writer.write_all(pixel_data));
             }
-            Update::CopyRect { ref dst, src_x_position, src_y_position } => {
+            Update::CopyRect {
+                ref dst,
+                src_x_position,
+                src_y_position,
+            } => {
                 try!(dst.write_to(writer));
                 try!(protocol::Encoding::CopyRect.write_to(writer));
                 try!(writer.write_u16::<BigEndian>(src_x_position));
                 try!(writer.write_u16::<BigEndian>(src_y_position));
             }
-            Update::Zrle { ref rect, zlib_data } => {
+            Update::Zrle {
+                ref rect,
+                zlib_data,
+            } => {
                 try!(rect.write_to(writer));
                 try!(protocol::Encoding::Zrle.write_to(writer));
                 try!(writer.write_u32::<BigEndian>(zlib_data.len() as u32));
                 try!(writer.write_all(zlib_data));
             }
-            Update::SetCursor { size, hotspot, pixels, mask_bits } => {
+            Update::SetCursor {
+                size,
+                hotspot,
+                pixels,
+                mask_bits,
+            } => {
                 try!(writer.write_u16::<BigEndian>(hotspot.0));
                 try!(writer.write_u16::<BigEndian>(hotspot.1));
                 try!(writer.write_u16::<BigEndian>(size.0));
@@ -247,7 +281,7 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
     pub fn add_raw_pixels(&mut self, rect: protocol::Rect, pixel_data: &'a [u8]) -> &mut Self {
         let update = Update::Raw {
             rect: rect,
-            pixel_data: pixel_data
+            pixel_data: pixel_data,
         };
 
         update.check(self.validation_data);
@@ -256,11 +290,12 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
     }
 
     /// Adds `CopyRect` update message instructing client to reuse pixel data it already owns.
-    pub fn add_copy_rect(&mut self,
-                         dst: protocol::Rect,
-                         src_x_position: u16,
-                         src_y_position: u16)
-                         -> &mut Self {
+    pub fn add_copy_rect(
+        &mut self,
+        dst: protocol::Rect,
+        src_x_position: u16,
+        src_y_position: u16,
+    ) -> &mut Self {
         let update = Update::CopyRect {
             dst: dst,
             src_x_position: src_x_position,
@@ -277,10 +312,14 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
     /// Panics if length of compressed data is bigger than `u32::MAX`.
     ///
     /// TODO: add method taking uncompressed data and compressing them.
-    pub fn add_compressed_pixels(&mut self, rect: protocol::Rect, zlib_data: &'a [u8]) -> &mut Self {
+    pub fn add_compressed_pixels(
+        &mut self,
+        rect: protocol::Rect,
+        zlib_data: &'a [u8],
+    ) -> &mut Self {
         let update = Update::Zrle {
             rect: rect,
-            zlib_data: zlib_data
+            zlib_data: zlib_data,
         };
 
         update.check(self.validation_data);
@@ -291,19 +330,20 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
     /// Adds data for drawing cursor.
     ///
     /// Panics if pixel data or mask bits length does not match size of the cursor.
-    pub fn add_cursor(&mut self,
-                      width: u16,
-                      height: u16,
-                      hotspot_x: u16,
-                      hotspot_y: u16,
-                      pixels: &'a [u8],
-                      mask_bits: &'a [u8])
-                      -> &mut Self {
+    pub fn add_cursor(
+        &mut self,
+        width: u16,
+        height: u16,
+        hotspot_x: u16,
+        hotspot_y: u16,
+        pixels: &'a [u8],
+        mask_bits: &'a [u8],
+    ) -> &mut Self {
         let update = Update::SetCursor {
             size: (width, height),
             hotspot: (hotspot_x, hotspot_y),
             pixels: pixels,
-            mask_bits: mask_bits
+            mask_bits: mask_bits,
         };
 
         update.check(self.validation_data);
@@ -334,7 +374,9 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
 
     /// Consumes `FramebufferUpdateBuilder` and returns `FramebufferUpdate`.
     pub fn done(self) -> FramebufferUpdate<'a> {
-        FramebufferUpdate { updates: self.updates }
+        FramebufferUpdate {
+            updates: self.updates,
+        }
     }
 }
 
@@ -350,7 +392,7 @@ impl<'a> FramebufferUpdate<'a> {
     fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
         for chunk in self.updates.chunks(u16::max_value() as usize) {
             let count = chunk.len() as u16;
-            try!(protocol::S2C::FramebufferUpdate{count}.write_to(writer));
+            try!(protocol::S2C::FramebufferUpdate { count }.write_to(writer));
             for update in chunk {
                 try!(update.write_to(writer));
             }
@@ -382,7 +424,7 @@ impl ValidationData {
 /// This structure provides basic server-side functionality of RDP protocol.
 pub struct Server {
     stream: TcpStream,
-    validation_data: ValidationData
+    validation_data: ValidationData,
 }
 
 impl Server {
@@ -393,12 +435,13 @@ impl Server {
     /// `shared` flag is `true` if the server should try to share the desktop by leaving other
     /// clients connected, and `false` if it should give exclusive access to this client by
     /// disconnecting all other clients.
-    pub fn from_tcp_stream(mut stream: TcpStream,
-                           width: u16,
-                           height: u16,
-                           pixel_format: protocol::PixelFormat,
-                           name: String)
-                           -> Result<(Server, bool)> {
+    pub fn from_tcp_stream(
+        mut stream: TcpStream,
+        width: u16,
+        height: u16,
+        pixel_format: protocol::PixelFormat,
+        name: String,
+    ) -> Result<(Server, bool)> {
         // Start version handshake - send highest supported version. Client may respond with lower
         // version but never higher.
         try!(protocol::Version::Rfb38.write_to(&mut stream));
@@ -432,10 +475,13 @@ impl Server {
 
         try!(server_init.write_to(&mut stream));
 
-        Ok((Server {
-            stream: stream,
-            validation_data: ValidationData::new(&pixel_format),
-        }, client_init.shared))
+        Ok((
+            Server {
+                stream: stream,
+                validation_data: ValidationData::new(&pixel_format),
+            },
+            client_init.shared,
+        ))
     }
 
     /// Constructs new `FramebufferUpdateBuilder` structure used to build `FramebufferUpdate`
@@ -455,36 +501,40 @@ impl Server {
                         self.validation_data.update(&pixel_format);
                         Ok(Event::SetPixelFormat(pixel_format))
                     }
-                    protocol::C2S::SetEncodings(encodings) => {
-                        Ok(Event::SetEncodings(encodings))
-                    }
+                    protocol::C2S::SetEncodings(encodings) => Ok(Event::SetEncodings(encodings)),
                     protocol::C2S::FramebufferUpdateRequest {
                         incremental,
                         x_position,
                         y_position,
                         width,
                         height,
-                    } => {
-                        Ok(Event::FramebufferUpdateRequest {
-                            incremental,
-                            rect: protocol::Rect::new(x_position, y_position, width, height),
-                        })
-                    }
-                    protocol::C2S::KeyEvent { down, key } => {
-                        Ok(Event::KeyEvent { down, key })
-                    }
-                    protocol::C2S::PointerEvent { button_mask, x_position, y_position } => {
-                        Ok(Event::PointerEvent { button_mask, x_position, y_position })
-                    }
-                    protocol::C2S::CutText(clipboard) => {
-                        Ok(Event::CutText(clipboard))
-                    }
-                    protocol::C2S::ExtendedKeyEvent { down, keysym, keycode } => {
-                        Ok(Event::ExtendedKeyEvent { down, keysym, keycode })
-                    }
+                    } => Ok(Event::FramebufferUpdateRequest {
+                        incremental,
+                        rect: protocol::Rect::new(x_position, y_position, width, height),
+                    }),
+                    protocol::C2S::KeyEvent { down, key } => Ok(Event::KeyEvent { down, key }),
+                    protocol::C2S::PointerEvent {
+                        button_mask,
+                        x_position,
+                        y_position,
+                    } => Ok(Event::PointerEvent {
+                        button_mask,
+                        x_position,
+                        y_position,
+                    }),
+                    protocol::C2S::CutText(clipboard) => Ok(Event::CutText(clipboard)),
+                    protocol::C2S::ExtendedKeyEvent {
+                        down,
+                        keysym,
+                        keycode,
+                    } => Ok(Event::ExtendedKeyEvent {
+                        down,
+                        keysym,
+                        keycode,
+                    }),
                 }
             }
-            Err(error) => Err(error)
+            Err(error) => Err(error),
         }
     }
 
@@ -529,14 +579,16 @@ mod test {
         // Small rectangle
         Update::Raw {
             rect: protocol::Rect::new(0, 0, 8, 8),
-            pixel_data: &data[0 .. (4 * 8 * 8)],
-        }.check(&validation_data);
+            pixel_data: &data[0..(4 * 8 * 8)],
+        }
+        .check(&validation_data);
 
         // Big rectangle (bigger than `u16::MAX`)
         Update::Raw {
             rect: protocol::Rect::new(0, 0, 800, 100),
             pixel_data: &data,
-        }.check(&validation_data);
+        }
+        .check(&validation_data);
     }
 
     /// Checks if `Update::Raw` rejects data with invalid length.
@@ -550,7 +602,8 @@ mod test {
         Update::Raw {
             rect: protocol::Rect::new(0, 0, 8, 8),
             pixel_data: &data,
-        }.check(&validation_data);
+        }
+        .check(&validation_data);
     }
 
     /// Checks if `Update::SetCursor` accepts valid data both in case of very small and big buffer
@@ -565,17 +618,19 @@ mod test {
         Update::SetCursor {
             size: (8, 8),
             hotspot: (0, 0),
-            pixels: &data[0 .. (4 * 8 * 8)],
-            mask_bits: &data[0 .. 8],
-        }.check(&validation_data);
+            pixels: &data[0..(4 * 8 * 8)],
+            mask_bits: &data[0..8],
+        }
+        .check(&validation_data);
 
         // Big rectangle (bigger than `u16::MAX`)
         Update::SetCursor {
             size: (800, 100),
             hotspot: (0, 0),
             pixels: &data,
-            mask_bits: &data[0 .. 10000],
-        }.check(&validation_data);
+            mask_bits: &data[0..10000],
+        }
+        .check(&validation_data);
     }
 
     /// Checks if `Update::SetCursor` rejects data with invalid pixel length.
@@ -590,8 +645,9 @@ mod test {
             size: (8, 8),
             hotspot: (0, 0),
             pixels: &data,
-            mask_bits: &data[0 .. 8],
-        }.check(&validation_data);
+            mask_bits: &data[0..8],
+        }
+        .check(&validation_data);
     }
 
     /// Checks if `Update::SetCursor` rejects data with invalid bit mask length.
@@ -606,7 +662,8 @@ mod test {
             size: (8, 8),
             hotspot: (0, 0),
             pixels: &data,
-            mask_bits: &data[0 .. 7],
-        }.check(&validation_data);
+            mask_bits: &data[0..7],
+        }
+        .check(&validation_data);
     }
 }

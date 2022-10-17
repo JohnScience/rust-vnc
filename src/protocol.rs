@@ -1,9 +1,11 @@
-use std::io::{ErrorKind as IoErrorKind, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use ::{Error, Result};
+use std::io::{ErrorKind as IoErrorKind, Read, Write};
+use {Error, Result};
 
 pub trait Message {
-    fn read_from<R: Read>(reader: &mut R) -> Result<Self> where Self: Sized;
+    fn read_from<R: Read>(reader: &mut R) -> Result<Self>
+    where
+        Self: Sized;
     fn write_to<W: Write>(&self, writer: &mut W) -> Result<()>;
 }
 
@@ -24,7 +26,7 @@ impl Message for Vec<u8> {
 }
 
 /* All strings in VNC are either ASCII or Latin-1, both of which
-   are embedded in Unicode. */
+are embedded in Unicode. */
 impl Message for String {
     fn read_from<R: Read>(reader: &mut R) -> Result<String> {
         let length = try!(reader.read_u32::<BigEndian>());
@@ -45,7 +47,7 @@ impl Message for String {
 pub enum Version {
     Rfb33,
     Rfb37,
-    Rfb38
+    Rfb38,
 }
 
 impl Message for Version {
@@ -58,7 +60,7 @@ impl Message for Version {
             b"RFB 003.008\n" => Ok(Version::Rfb38),
             // Apple remote desktop
             b"RFB 003.889\n" => Ok(Version::Rfb38),
-            _ => Err(Error::Unexpected("protocol version"))
+            _ => Err(Error::Unexpected("protocol version")),
         }
     }
 
@@ -87,11 +89,11 @@ impl Message for SecurityType {
     fn read_from<R: Read>(reader: &mut R) -> Result<SecurityType> {
         let security_type = try!(reader.read_u8());
         match security_type {
-            0  => Ok(SecurityType::Invalid),
-            1  => Ok(SecurityType::None),
-            2  => Ok(SecurityType::VncAuthentication),
+            0 => Ok(SecurityType::Invalid),
+            1 => Ok(SecurityType::None),
+            2 => Ok(SecurityType::VncAuthentication),
             30 => Ok(SecurityType::AppleRemoteDesktop),
-            n  => Ok(SecurityType::Unknown(n))
+            n => Ok(SecurityType::Unknown(n)),
         }
     }
 
@@ -101,7 +103,7 @@ impl Message for SecurityType {
             &SecurityType::None => 1,
             &SecurityType::VncAuthentication => 2,
             &SecurityType::AppleRemoteDesktop => 30,
-            &SecurityType::Unknown(n) => n
+            &SecurityType::Unknown(n) => n,
         };
         try!(writer.write_u8(security_type));
         Ok(())
@@ -134,7 +136,7 @@ impl Message for SecurityTypes {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SecurityResult {
     Succeeded,
-    Failed
+    Failed,
 }
 
 impl Message for SecurityResult {
@@ -143,14 +145,14 @@ impl Message for SecurityResult {
         match result {
             0 => Ok(SecurityResult::Succeeded),
             1 => Ok(SecurityResult::Failed),
-            _ => Err(Error::Unexpected("security result"))
+            _ => Err(Error::Unexpected("security result")),
         }
     }
 
     fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
         let result = match self {
             &SecurityResult::Succeeded => 0,
-            &SecurityResult::Failed => 1
+            &SecurityResult::Failed => 1,
         };
         try!(writer.write_u32::<BigEndian>(result));
         Ok(())
@@ -207,13 +209,13 @@ impl Message for AppleAuthResponse {
 
 #[derive(Debug)]
 pub struct ClientInit {
-    pub shared: bool
+    pub shared: bool,
 }
 
 impl Message for ClientInit {
     fn read_from<R: Read>(reader: &mut R) -> Result<ClientInit> {
         Ok(ClientInit {
-            shared: try!(reader.read_u8()) != 0
+            shared: try!(reader.read_u8()) != 0,
         })
     }
 
@@ -226,30 +228,30 @@ impl Message for ClientInit {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PixelFormat {
     pub bits_per_pixel: u8,
-    pub depth:          u8,
-    pub big_endian:     bool,
-    pub true_colour:    bool,
-    pub red_max:        u16,
-    pub green_max:      u16,
-    pub blue_max:       u16,
-    pub red_shift:      u8,
-    pub green_shift:    u8,
-    pub blue_shift:     u8,
+    pub depth: u8,
+    pub big_endian: bool,
+    pub true_colour: bool,
+    pub red_max: u16,
+    pub green_max: u16,
+    pub blue_max: u16,
+    pub red_shift: u8,
+    pub green_shift: u8,
+    pub blue_shift: u8,
 }
 
 impl Message for PixelFormat {
     fn read_from<R: Read>(reader: &mut R) -> Result<PixelFormat> {
         let pixel_format = PixelFormat {
             bits_per_pixel: try!(reader.read_u8()),
-            depth:          try!(reader.read_u8()),
-            big_endian:     try!(reader.read_u8()) != 0,
-            true_colour:    try!(reader.read_u8()) != 0,
-            red_max:        try!(reader.read_u16::<BigEndian>()),
-            green_max:      try!(reader.read_u16::<BigEndian>()),
-            blue_max:       try!(reader.read_u16::<BigEndian>()),
-            red_shift:      try!(reader.read_u8()),
-            green_shift:    try!(reader.read_u8()),
-            blue_shift:     try!(reader.read_u8()),
+            depth: try!(reader.read_u8()),
+            big_endian: try!(reader.read_u8()) != 0,
+            true_colour: try!(reader.read_u8()) != 0,
+            red_max: try!(reader.read_u16::<BigEndian>()),
+            green_max: try!(reader.read_u16::<BigEndian>()),
+            blue_max: try!(reader.read_u16::<BigEndian>()),
+            red_shift: try!(reader.read_u8()),
+            green_shift: try!(reader.read_u8()),
+            blue_shift: try!(reader.read_u8()),
         };
         try!(reader.read_exact(&mut [0u8; 3]));
         Ok(pixel_format)
@@ -273,19 +275,19 @@ impl Message for PixelFormat {
 
 #[derive(Debug)]
 pub struct ServerInit {
-    pub framebuffer_width:  u16,
+    pub framebuffer_width: u16,
     pub framebuffer_height: u16,
-    pub pixel_format:       PixelFormat,
-    pub name:               String
+    pub pixel_format: PixelFormat,
+    pub name: String,
 }
 
 impl Message for ServerInit {
     fn read_from<R: Read>(reader: &mut R) -> Result<ServerInit> {
         Ok(ServerInit {
-            framebuffer_width:  try!(reader.read_u16::<BigEndian>()),
+            framebuffer_width: try!(reader.read_u16::<BigEndian>()),
             framebuffer_height: try!(reader.read_u16::<BigEndian>()),
-            pixel_format:       try!(PixelFormat::read_from(reader)),
-            name:               try!(String::read_from(reader))
+            pixel_format: try!(PixelFormat::read_from(reader)),
+            name: try!(String::read_from(reader)),
         })
     }
 
@@ -308,7 +310,7 @@ impl Message for CopyRect {
     fn read_from<R: Read>(reader: &mut R) -> Result<CopyRect> {
         Ok(CopyRect {
             src_x_position: try!(reader.read_u16::<BigEndian>()),
-            src_y_position: try!(reader.read_u16::<BigEndian>())
+            src_y_position: try!(reader.read_u16::<BigEndian>()),
         })
     }
 
@@ -339,15 +341,15 @@ impl Message for Encoding {
     fn read_from<R: Read>(reader: &mut R) -> Result<Encoding> {
         let encoding = try!(reader.read_i32::<BigEndian>());
         match encoding {
-            0    => Ok(Encoding::Raw),
-            1    => Ok(Encoding::CopyRect),
-            2    => Ok(Encoding::Rre),
-            5    => Ok(Encoding::Hextile),
-            16   => Ok(Encoding::Zrle),
+            0 => Ok(Encoding::Raw),
+            1 => Ok(Encoding::CopyRect),
+            2 => Ok(Encoding::Rre),
+            5 => Ok(Encoding::Hextile),
+            16 => Ok(Encoding::Zrle),
             -239 => Ok(Encoding::Cursor),
             -223 => Ok(Encoding::DesktopSize),
             -258 => Ok(Encoding::ExtendedKeyEvent),
-            n    => Ok(Encoding::Unknown(n))
+            n => Ok(Encoding::Unknown(n)),
         }
     }
 
@@ -361,7 +363,7 @@ impl Message for Encoding {
             &Encoding::Cursor => -239,
             &Encoding::DesktopSize => -223,
             &Encoding::ExtendedKeyEvent => -258,
-            &Encoding::Unknown(n) => n
+            &Encoding::Unknown(n) => n,
         };
         try!(writer.write_i32::<BigEndian>(encoding));
         Ok(())
@@ -375,43 +377,43 @@ pub enum C2S {
     SetEncodings(Vec<Encoding>),
     FramebufferUpdateRequest {
         incremental: bool,
-        x_position:  u16,
-        y_position:  u16,
-        width:       u16,
-        height:      u16,
+        x_position: u16,
+        y_position: u16,
+        width: u16,
+        height: u16,
     },
     KeyEvent {
-        down:        bool,
-        key:         u32,
+        down: bool,
+        key: u32,
     },
     PointerEvent {
         button_mask: u8,
-        x_position:  u16,
-        y_position:  u16
+        x_position: u16,
+        y_position: u16,
     },
     CutText(String),
 
     // extensions
     ExtendedKeyEvent {
-        down:        bool,
-        keysym:      u32,
-        keycode:     u32,
+        down: bool,
+        keysym: u32,
+        keycode: u32,
     },
 }
 
 impl Message for C2S {
     fn read_from<R: Read>(reader: &mut R) -> Result<C2S> {
-        let message_type =
-            match reader.read_u8() {
-                Err(ref e) if e.kind() == IoErrorKind::UnexpectedEof =>
-                    return Err(Error::Disconnected),
-                result => try!(result)
-            };
+        let message_type = match reader.read_u8() {
+            Err(ref e) if e.kind() == IoErrorKind::UnexpectedEof => {
+                return Err(Error::Disconnected)
+            }
+            result => try!(result),
+        };
         match message_type {
             0 => {
                 try!(reader.read_exact(&mut [0u8; 3]));
                 Ok(C2S::SetPixelFormat(try!(PixelFormat::read_from(reader))))
-            },
+            }
             2 => {
                 try!(reader.read_exact(&mut [0u8; 1]));
                 let count = try!(reader.read_u16::<BigEndian>());
@@ -420,33 +422,32 @@ impl Message for C2S {
                     encodings.push(try!(Encoding::read_from(reader)));
                 }
                 Ok(C2S::SetEncodings(encodings))
-            },
-            3 => {
-                Ok(C2S::FramebufferUpdateRequest {
-                    incremental: try!(reader.read_u8()) != 0,
-                    x_position:  try!(reader.read_u16::<BigEndian>()),
-                    y_position:  try!(reader.read_u16::<BigEndian>()),
-                    width:       try!(reader.read_u16::<BigEndian>()),
-                    height:      try!(reader.read_u16::<BigEndian>())
-                })
-            },
+            }
+            3 => Ok(C2S::FramebufferUpdateRequest {
+                incremental: try!(reader.read_u8()) != 0,
+                x_position: try!(reader.read_u16::<BigEndian>()),
+                y_position: try!(reader.read_u16::<BigEndian>()),
+                width: try!(reader.read_u16::<BigEndian>()),
+                height: try!(reader.read_u16::<BigEndian>()),
+            }),
             4 => {
                 let down = try!(reader.read_u8()) != 0;
                 try!(reader.read_exact(&mut [0u8; 2]));
                 let key = try!(reader.read_u32::<BigEndian>());
-                Ok(C2S::KeyEvent { down: down, key: key })
-            },
-            5 => {
-                Ok(C2S::PointerEvent {
-                    button_mask: try!(reader.read_u8()),
-                    x_position:  try!(reader.read_u16::<BigEndian>()),
-                    y_position:  try!(reader.read_u16::<BigEndian>())
+                Ok(C2S::KeyEvent {
+                    down: down,
+                    key: key,
                 })
-            },
+            }
+            5 => Ok(C2S::PointerEvent {
+                button_mask: try!(reader.read_u8()),
+                x_position: try!(reader.read_u16::<BigEndian>()),
+                y_position: try!(reader.read_u16::<BigEndian>()),
+            }),
             6 => {
                 try!(reader.read_exact(&mut [0u8; 3]));
                 Ok(C2S::CutText(try!(String::read_from(reader))))
-            },
+            }
             255 => {
                 let submessage_type = try!(reader.read_u8());
                 match submessage_type {
@@ -454,12 +455,16 @@ impl Message for C2S {
                         let down = try!(reader.read_u16::<BigEndian>()) != 0;
                         let keysym = try!(reader.read_u32::<BigEndian>());
                         let keycode = try!(reader.read_u32::<BigEndian>());
-                        Ok(C2S::ExtendedKeyEvent { down: down, keysym: keysym, keycode: keycode })
+                        Ok(C2S::ExtendedKeyEvent {
+                            down: down,
+                            keysym: keysym,
+                            keycode: keycode,
+                        })
                     }
-                    _ => Err(Error::Unexpected("server to client QEMU submessage type"))
+                    _ => Err(Error::Unexpected("server to client QEMU submessage type")),
                 }
             }
-            _ => Err(Error::Unexpected("client to server message type"))
+            _ => Err(Error::Unexpected("client to server message type")),
         }
     }
     fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
@@ -468,7 +473,7 @@ impl Message for C2S {
                 try!(writer.write_u8(0));
                 try!(writer.write_all(&[0u8; 3]));
                 try!(PixelFormat::write_to(pixel_format, writer));
-            },
+            }
             &C2S::SetEncodings(ref encodings) => {
                 try!(writer.write_u8(2));
                 try!(writer.write_all(&[0u8; 1]));
@@ -476,31 +481,45 @@ impl Message for C2S {
                 for encoding in encodings {
                     try!(Encoding::write_to(encoding, writer));
                 }
-            },
-            &C2S::FramebufferUpdateRequest { incremental, x_position, y_position, width, height } => {
+            }
+            &C2S::FramebufferUpdateRequest {
+                incremental,
+                x_position,
+                y_position,
+                width,
+                height,
+            } => {
                 try!(writer.write_u8(3));
                 try!(writer.write_u8(if incremental { 1 } else { 0 }));
                 try!(writer.write_u16::<BigEndian>(x_position));
                 try!(writer.write_u16::<BigEndian>(y_position));
                 try!(writer.write_u16::<BigEndian>(width));
                 try!(writer.write_u16::<BigEndian>(height));
-            },
+            }
             &C2S::KeyEvent { down, key } => {
                 try!(writer.write_u8(4));
                 try!(writer.write_u8(if down { 1 } else { 0 }));
                 try!(writer.write_all(&[0u8; 2]));
                 try!(writer.write_u32::<BigEndian>(key));
-            },
-            &C2S::PointerEvent { button_mask, x_position, y_position } => {
+            }
+            &C2S::PointerEvent {
+                button_mask,
+                x_position,
+                y_position,
+            } => {
                 try!(writer.write_u8(5));
                 try!(writer.write_u8(button_mask));
                 try!(writer.write_u16::<BigEndian>(x_position));
                 try!(writer.write_u16::<BigEndian>(y_position));
-            },
+            }
             &C2S::CutText(ref text) => {
                 try!(String::write_to(text, writer));
             }
-            &C2S::ExtendedKeyEvent { down, keysym, keycode } => {
+            &C2S::ExtendedKeyEvent {
+                down,
+                keysym,
+                keycode,
+            } => {
                 try!(writer.write_u8(255));
                 try!(writer.write_u8(0));
                 try!(writer.write_u16::<BigEndian>(if down { 1 } else { 0 }));
@@ -514,10 +533,10 @@ impl Message for C2S {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Rect {
-    pub left:   u16,
-    pub top:    u16,
-    pub width:  u16,
-    pub height: u16
+    pub left: u16,
+    pub top: u16,
+    pub width: u16,
+    pub height: u16,
 }
 
 impl Rect {
@@ -535,9 +554,9 @@ impl Rect {
 impl Message for Rect {
     fn read_from<R: Read>(reader: &mut R) -> Result<Rect> {
         Ok(Rect {
-            left:   try!(reader.read_u16::<BigEndian>()),
-            top:    try!(reader.read_u16::<BigEndian>()),
-            width:  try!(reader.read_u16::<BigEndian>()),
+            left: try!(reader.read_u16::<BigEndian>()),
+            top: try!(reader.read_u16::<BigEndian>()),
+            width: try!(reader.read_u16::<BigEndian>()),
             height: try!(reader.read_u16::<BigEndian>()),
         })
     }
@@ -555,9 +574,9 @@ impl Message for Rect {
 pub struct RectangleHeader {
     pub x_position: u16,
     pub y_position: u16,
-    pub width:      u16,
-    pub height:     u16,
-    pub encoding:   Encoding,
+    pub width: u16,
+    pub height: u16,
+    pub encoding: Encoding,
 }
 
 impl Message for RectangleHeader {
@@ -565,9 +584,9 @@ impl Message for RectangleHeader {
         Ok(RectangleHeader {
             x_position: try!(reader.read_u16::<BigEndian>()),
             y_position: try!(reader.read_u16::<BigEndian>()),
-            width:      try!(reader.read_u16::<BigEndian>()),
-            height:     try!(reader.read_u16::<BigEndian>()),
-            encoding:   try!(Encoding::read_from(reader))
+            width: try!(reader.read_u16::<BigEndian>()),
+            height: try!(reader.read_u16::<BigEndian>()),
+            encoding: try!(Encoding::read_from(reader)),
         })
     }
 
@@ -583,17 +602,17 @@ impl Message for RectangleHeader {
 
 #[derive(Debug)]
 pub struct Colour {
-    pub red:   u16,
+    pub red: u16,
     pub green: u16,
-    pub blue:  u16
+    pub blue: u16,
 }
 
 impl Message for Colour {
     fn read_from<R: Read>(reader: &mut R) -> Result<Colour> {
         Ok(Colour {
-            red:   try!(reader.read_u16::<BigEndian>()),
+            red: try!(reader.read_u16::<BigEndian>()),
             green: try!(reader.read_u16::<BigEndian>()),
-            blue:  try!(reader.read_u16::<BigEndian>())
+            blue: try!(reader.read_u16::<BigEndian>()),
         })
     }
 
@@ -609,12 +628,12 @@ impl Message for Colour {
 pub enum S2C {
     // core spec
     FramebufferUpdate {
-        count:        u16,
+        count: u16,
         // Vec<RectangleHeader> has to be read out manually
     },
     SetColourMapEntries {
         first_colour: u16,
-        colours:      Vec<Colour>
+        colours: Vec<Colour>,
     },
     Bell,
     CutText(String),
@@ -623,19 +642,19 @@ pub enum S2C {
 
 impl Message for S2C {
     fn read_from<R: Read>(reader: &mut R) -> Result<S2C> {
-        let message_type =
-            match reader.read_u8() {
-                Err(ref e) if e.kind() == IoErrorKind::UnexpectedEof =>
-                    return Err(Error::Disconnected),
-                result => try!(result)
-            };
+        let message_type = match reader.read_u8() {
+            Err(ref e) if e.kind() == IoErrorKind::UnexpectedEof => {
+                return Err(Error::Disconnected)
+            }
+            result => try!(result),
+        };
         match message_type {
             0 => {
                 try!(reader.read_exact(&mut [0u8; 1]));
                 Ok(S2C::FramebufferUpdate {
-                    count: try!(reader.read_u16::<BigEndian>())
+                    count: try!(reader.read_u16::<BigEndian>()),
                 })
-            },
+            }
             1 => {
                 try!(reader.read_exact(&mut [0u8; 1]));
                 let first_colour = try!(reader.read_u16::<BigEndian>());
@@ -644,16 +663,17 @@ impl Message for S2C {
                 for _ in 0..count {
                     colours.push(try!(Colour::read_from(reader)));
                 }
-                Ok(S2C::SetColourMapEntries { first_colour: first_colour, colours: colours })
-            },
-            2 => {
-                Ok(S2C::Bell)
-            },
+                Ok(S2C::SetColourMapEntries {
+                    first_colour: first_colour,
+                    colours: colours,
+                })
+            }
+            2 => Ok(S2C::Bell),
             3 => {
                 try!(reader.read_exact(&mut [0u8; 3]));
                 Ok(S2C::CutText(try!(String::read_from(reader))))
-            },
-            _ => Err(Error::Unexpected("server to client message type"))
+            }
+            _ => Err(Error::Unexpected("server to client message type")),
         }
     }
 
@@ -663,18 +683,21 @@ impl Message for S2C {
                 try!(writer.write_u8(0));
                 try!(writer.write_all(&[0u8; 1]));
                 try!(writer.write_u16::<BigEndian>(count));
-            },
-            &S2C::SetColourMapEntries { first_colour, ref colours } => {
+            }
+            &S2C::SetColourMapEntries {
+                first_colour,
+                ref colours,
+            } => {
                 try!(writer.write_u8(1));
                 try!(writer.write_all(&[0u8; 1]));
                 try!(writer.write_u16::<BigEndian>(first_colour));
                 for colour in colours {
                     try!(Colour::write_to(colour, writer));
                 }
-            },
+            }
             &S2C::Bell => {
                 try!(writer.write_u8(2));
-            },
+            }
             &S2C::CutText(ref text) => {
                 try!(writer.write_u8(3));
                 try!(writer.write_all(&[0u8; 3]));
