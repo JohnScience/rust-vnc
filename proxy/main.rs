@@ -6,7 +6,7 @@ extern crate vnc;
 use clap::{Arg, App};
 
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
 
     let matches = App::new("rvncproxy")
         .about("VNC proxy")
