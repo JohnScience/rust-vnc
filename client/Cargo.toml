@@ -10,6 +10,7 @@ description = "A VNC client"
 
 [features]
 apple-auth = ["vnc/apple-auth"]
+transpose-rects = ["vnc/transpose-rects"]
 
 [[bin]]
 name = "rvncclient"

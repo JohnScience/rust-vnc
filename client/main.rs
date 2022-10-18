@@ -414,9 +414,14 @@ fn main() {
                     incremental = false;
                 }
                 Event::PutPixels(vnc_rect, ref pixels) => {
+                    let (left, top) = if cfg!(feature = "transpose-rect") {
+                        (vnc_rect.left, vnc_rect.top)
+                    } else {
+                        (vnc_rect.top, vnc_rect.left)
+                    };
                     let sdl_rect = SdlRect::new(
-                        vnc_rect.left as i32,
-                        vnc_rect.top as i32,
+                        left as i32,
+                        top as i32,
                         vnc_rect.width as u32,
                         vnc_rect.height as u32,
                     );
