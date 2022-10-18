@@ -205,28 +205,28 @@ impl<'a> Update<'a> {
                 ref rect,
                 pixel_data,
             } => {
-                try!(rect.write_to(writer));
-                try!(protocol::Encoding::Raw.write_to(writer));
-                try!(writer.write_all(pixel_data));
+                rect.write_to(writer)?;
+                protocol::Encoding::Raw.write_to(writer)?;
+                writer.write_all(pixel_data)?;
             }
             Update::CopyRect {
                 ref dst,
                 src_x_position,
                 src_y_position,
             } => {
-                try!(dst.write_to(writer));
-                try!(protocol::Encoding::CopyRect.write_to(writer));
-                try!(writer.write_u16::<BigEndian>(src_x_position));
-                try!(writer.write_u16::<BigEndian>(src_y_position));
+                dst.write_to(writer)?;
+                protocol::Encoding::CopyRect.write_to(writer)?;
+                writer.write_u16::<BigEndian>(src_x_position)?;
+                writer.write_u16::<BigEndian>(src_y_position)?;
             }
             Update::Zrle {
                 ref rect,
                 zlib_data,
             } => {
-                try!(rect.write_to(writer));
-                try!(protocol::Encoding::Zrle.write_to(writer));
-                try!(writer.write_u32::<BigEndian>(zlib_data.len() as u32));
-                try!(writer.write_all(zlib_data));
+                rect.write_to(writer)?;
+                protocol::Encoding::Zrle.write_to(writer)?;
+                writer.write_u32::<BigEndian>(zlib_data.len() as u32)?;
+                writer.write_all(zlib_data)?;
             }
             Update::SetCursor {
                 size,
@@ -234,24 +234,24 @@ impl<'a> Update<'a> {
                 pixels,
                 mask_bits,
             } => {
-                try!(writer.write_u16::<BigEndian>(hotspot.0));
-                try!(writer.write_u16::<BigEndian>(hotspot.1));
-                try!(writer.write_u16::<BigEndian>(size.0));
-                try!(writer.write_u16::<BigEndian>(size.1));
-                try!(protocol::Encoding::Cursor.write_to(writer));
-                try!(writer.write_all(pixels));
-                try!(writer.write_all(mask_bits));
+                writer.write_u16::<BigEndian>(hotspot.0)?;
+                writer.write_u16::<BigEndian>(hotspot.1)?;
+                writer.write_u16::<BigEndian>(size.0)?;
+                writer.write_u16::<BigEndian>(size.1)?;
+                protocol::Encoding::Cursor.write_to(writer)?;
+                writer.write_all(pixels)?;
+                writer.write_all(mask_bits)?;
             }
             Update::DesktopSize { width, height } => {
-                try!(writer.write_u16::<BigEndian>(0));
-                try!(writer.write_u16::<BigEndian>(0));
-                try!(writer.write_u16::<BigEndian>(width));
-                try!(writer.write_u16::<BigEndian>(height));
-                try!(protocol::Encoding::DesktopSize.write_to(writer));
+                writer.write_u16::<BigEndian>(0)?;
+                writer.write_u16::<BigEndian>(0)?;
+                writer.write_u16::<BigEndian>(width)?;
+                writer.write_u16::<BigEndian>(height)?;
+                protocol::Encoding::DesktopSize.write_to(writer)?;
             }
             Update::Encoding { encoding } => {
-                try!(protocol::Rect::new(0, 0, 0, 0).write_to(writer));
-                try!(encoding.write_to(writer));
+                protocol::Rect::new(0, 0, 0, 0).write_to(writer)?;
+                encoding.write_to(writer)?;
             }
         }
         Ok(())
@@ -392,9 +392,9 @@ impl<'a> FramebufferUpdate<'a> {
     fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
         for chunk in self.updates.chunks(u16::max_value() as usize) {
             let count = chunk.len() as u16;
-            try!(protocol::S2C::FramebufferUpdate { count }.write_to(writer));
+            protocol::S2C::FramebufferUpdate { count }.write_to(writer)?;
             for update in chunk {
-                try!(update.write_to(writer));
+                update.write_to(writer)?;
             }
         }
         Ok(())
@@ -444,26 +444,26 @@ impl Server {
     ) -> Result<(Server, bool)> {
         // Start version handshake - send highest supported version. Client may respond with lower
         // version but never higher.
-        try!(protocol::Version::Rfb38.write_to(&mut stream));
-        let version = try!(protocol::Version::read_from(&mut stream));
+        protocol::Version::Rfb38.write_to(&mut stream)?;
+        let version = protocol::Version::read_from(&mut stream)?;
 
         // Start security handshake.
         // TODO: Add support for more security types and handle errors if negotiations fail.
         match version {
             protocol::Version::Rfb33 => {
-                try!(protocol::SecurityType::None.write_to(&mut stream));
+                protocol::SecurityType::None.write_to(&mut stream)?;
             }
             _ => {
                 let security_types = vec![protocol::SecurityType::None];
-                try!(protocol::SecurityTypes(security_types).write_to(&mut stream));
+                protocol::SecurityTypes(security_types).write_to(&mut stream)?;
             }
         }
 
-        let _security_type = try!(protocol::SecurityType::read_from(&mut stream));
-        try!(protocol::SecurityResult::Succeeded.write_to(&mut stream));
+        let _security_type = protocol::SecurityType::read_from(&mut stream)?;
+        protocol::SecurityResult::Succeeded.write_to(&mut stream)?;
 
         // Wait for client init message
-        let client_init = try!(protocol::ClientInit::read_from(&mut stream));
+        let client_init = protocol::ClientInit::read_from(&mut stream)?;
 
         // Send server init message
         let server_init = protocol::ServerInit {
@@ -473,7 +473,7 @@ impl Server {
             name,
         };
 
-        try!(server_init.write_to(&mut stream));
+        server_init.write_to(&mut stream)?;
 
         Ok((
             Server {
@@ -540,13 +540,13 @@ impl Server {
 
     /// Sends `FramebufferUpdate` message.
     pub fn send_update(&mut self, updates: &FramebufferUpdate) -> Result<()> {
-        try!(updates.write_to(&mut self.stream));
+        updates.write_to(&mut self.stream)?;
         Ok(())
     }
 
     /// Shuts down communication over TCP stream in both directions.
     pub fn disconnect(self) -> Result<()> {
-        try!(self.stream.shutdown(Shutdown::Both));
+        self.stream.shutdown(Shutdown::Both)?;
         Ok(())
     }
 }

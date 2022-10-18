@@ -76,7 +76,7 @@ impl<T: Read> BitReader<T> {
         assert!(count > 0 && count <= 8);
 
         if self.position == 8 {
-            self.buffer = try!(self.reader.read_u8());
+            self.buffer = self.reader.read_u8()?;
             self.position = 0;
         }
 
@@ -95,7 +95,7 @@ impl<T: Read> BitReader<T> {
     }
 
     fn read_bit(&mut self) -> std::io::Result<bool> {
-        Ok(try!(self.read_bits(1)) != 0)
+        Ok(self.read_bits(1)? != 0)
     }
 
     fn align(&mut self) {
@@ -138,10 +138,10 @@ impl Decoder {
         F: FnMut(protocol::Rect, Vec<u8>) -> Result<bool>,
     {
         fn read_run_length(reader: &mut dyn Read) -> Result<usize> {
-            let mut run_length_part = try!(reader.read_u8());
+            let mut run_length_part = reader.read_u8()?;
             let mut run_length = 1 + run_length_part as usize;
             while run_length_part == 255 {
-                run_length_part = try!(reader.read_u8());
+                run_length_part = reader.read_u8()?;
                 run_length += run_length_part as usize;
             }
             Ok(run_length)
@@ -155,7 +155,7 @@ impl Decoder {
             bpp: usize,
         ) -> Result<()> {
             let mut buf = [0; 4];
-            try!(reader.read_exact(&mut buf[pad as usize..pad as usize + compressed_bpp]));
+            reader.read_exact(&mut buf[pad as usize..pad as usize + compressed_bpp])?;
             pixels.extend_from_slice(&buf[..bpp]);
             Ok(())
         }
@@ -201,18 +201,18 @@ impl Decoder {
                 };
                 let pixel_count = height as usize * width as usize;
 
-                let is_rle = try!(reader.read_bit());
-                let palette_size = try!(reader.read_bits(7));
+                let is_rle = reader.read_bit()?;
+                let palette_size = reader.read_bits(7)?;
 
                 palette.truncate(0);
                 for _ in 0..palette_size {
-                    try!(copy_true_color(
+                    copy_true_color(
                         &mut reader,
                         &mut palette,
                         pad_pixel,
                         compressed_bpp,
                         bpp
-                    ))
+                    )?
                 }
 
                 let mut pixels = Vec::with_capacity(pixel_count * bpp);
@@ -220,13 +220,13 @@ impl Decoder {
                     (false, 0) => {
                         // True Color pixels
                         for _ in 0..pixel_count {
-                            try!(copy_true_color(
+                            copy_true_color(
                                 &mut reader,
                                 &mut pixels,
                                 pad_pixel,
                                 compressed_bpp,
                                 bpp
-                            ))
+                            )?
                         }
                     }
                     (false, 1) => {
@@ -245,7 +245,7 @@ impl Decoder {
                         };
                         for _ in 0..height {
                             for _ in 0..width {
-                                let index = try!(reader.read_bits(bits_per_index));
+                                let index = reader.read_bits(bits_per_index)?;
                                 copy_indexed(&palette, &mut pixels, bpp, index)
                             }
                             reader.align();
@@ -257,14 +257,14 @@ impl Decoder {
                         let mut pixel = Vec::new();
                         while count < pixel_count {
                             pixel.truncate(0);
-                            try!(copy_true_color(
+                            copy_true_color(
                                 &mut reader,
                                 &mut pixel,
                                 pad_pixel,
                                 compressed_bpp,
                                 bpp
-                            ));
-                            let run_length = try!(read_run_length(&mut reader));
+                            )?;
+                            let run_length = read_run_length(&mut reader)?;
                             for _ in 0..run_length {
                                 pixels.extend(&pixel)
                             }
@@ -275,10 +275,10 @@ impl Decoder {
                         // Indexed RLE
                         let mut count = 0;
                         while count < pixel_count {
-                            let longer_than_one = try!(reader.read_bit());
-                            let index = try!(reader.read_bits(7));
+                            let longer_than_one = reader.read_bit()?;
+                            let index = reader.read_bits(7)?;
                             let run_length = if longer_than_one {
-                                try!(read_run_length(&mut reader))
+                                read_run_length(&mut reader)?
                             } else {
                                 1
                             };
@@ -292,7 +292,7 @@ impl Decoder {
                 }
 
                 let tile = protocol::Rect::new(rect.top + y, rect.left + x, width, height);
-                if let false = try!(callback(tile, pixels)) {
+                if let false = callback(tile, pixels)? {
                     return Ok(false);
                 }
 
@@ -301,7 +301,7 @@ impl Decoder {
             y += height;
         }
 
-        self.decompressor = Some(try!(try!(reader.into_inner()).into_inner()));
+        self.decompressor = Some(reader.into_inner()?.into_inner()?);
         Ok(true)
     }
 }
