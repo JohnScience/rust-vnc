@@ -206,13 +206,7 @@ impl Decoder {
 
                 palette.truncate(0);
                 for _ in 0..palette_size {
-                    copy_true_color(
-                        &mut reader,
-                        &mut palette,
-                        pad_pixel,
-                        compressed_bpp,
-                        bpp
-                    )?
+                    copy_true_color(&mut reader, &mut palette, pad_pixel, compressed_bpp, bpp)?
                 }
 
                 let mut pixels = Vec::with_capacity(pixel_count * bpp);
@@ -225,7 +219,7 @@ impl Decoder {
                                 &mut pixels,
                                 pad_pixel,
                                 compressed_bpp,
-                                bpp
+                                bpp,
                             )?
                         }
                     }
@@ -262,7 +256,7 @@ impl Decoder {
                                 &mut pixel,
                                 pad_pixel,
                                 compressed_bpp,
-                                bpp
+                                bpp,
                             )?;
                             let run_length = read_run_length(&mut reader)?;
                             for _ in 0..run_length {

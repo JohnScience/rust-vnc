@@ -133,14 +133,10 @@ impl Event {
                                 unsafe { data.set_len(length as usize) }
                                 stream.read_exact(&mut data)?;
                                 debug!("<- ...compressed pixels");
-                                let result = zrle_decoder.decode(
-                                    format,
-                                    dst,
-                                    &data,
-                                    |tile, pixels| {
+                                let result =
+                                    zrle_decoder.decode(format, dst, &data, |tile, pixels| {
                                         Ok(tx_events.send(Event::PutPixels(tile, pixels)).is_ok())
-                                    }
-                                )?;
+                                    })?;
                                 if !result {
                                     break;
                                 }
@@ -256,10 +252,7 @@ impl Client {
                     AuthChoice::__Nonexhaustive => unreachable!(),
                 };
                 debug!("-> SecurityType::{:?}", used_security_type);
-                protocol::SecurityType::write_to(
-                    &used_security_type,
-                    &mut stream
-                )?;
+                protocol::SecurityType::write_to(&used_security_type, &mut stream)?;
             }
         }
 
@@ -383,10 +376,7 @@ impl Client {
     }
 
     pub fn send_key_event(&mut self, down: bool, key: u32) -> Result<()> {
-        let key_event = protocol::C2S::KeyEvent {
-            down,
-            key,
-        };
+        let key_event = protocol::C2S::KeyEvent { down, key };
         debug!("-> {:?}", key_event);
         protocol::C2S::write_to(&key_event, &mut self.stream)?;
         Ok(())

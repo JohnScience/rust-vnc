@@ -16,17 +16,11 @@ impl Proxy {
     ) -> Result<Proxy> {
         let server_version = protocol::Version::read_from(&mut server_stream)?;
         debug!("c<-s {:?}", server_version);
-        protocol::Version::write_to(
-            &server_version,
-            &mut client_stream
-        )?;
+        protocol::Version::write_to(&server_version, &mut client_stream)?;
 
         let client_version = protocol::Version::read_from(&mut client_stream)?;
         debug!("c->s {:?}", client_version);
-        protocol::Version::write_to(
-            &client_version,
-            &mut server_stream
-        )?;
+        protocol::Version::write_to(&client_version, &mut server_stream)?;
 
         fn security_type_supported(security_type: &protocol::SecurityType) -> bool {
             match security_type {
@@ -49,10 +43,7 @@ impl Proxy {
                 }
 
                 debug!("c<-! SecurityType::{:?}", security_type);
-                protocol::SecurityType::write_to(
-                    &security_type,
-                    &mut client_stream
-                )?;
+                protocol::SecurityType::write_to(&security_type, &mut client_stream)?;
 
                 if security_type == protocol::SecurityType::Invalid {
                     vec![]
@@ -61,18 +52,14 @@ impl Proxy {
                 }
             }
             _ => {
-                let mut security_types =
-                    protocol::SecurityTypes::read_from(&mut server_stream)?;
+                let mut security_types = protocol::SecurityTypes::read_from(&mut server_stream)?;
                 debug!("!<-s {:?}", security_types);
 
                 // Filter out security types we can't handle
                 security_types.0.retain(security_type_supported);
 
                 debug!("c<-! {:?}", security_types);
-                protocol::SecurityTypes::write_to(
-                    &security_types,
-                    &mut client_stream
-                )?;
+                protocol::SecurityTypes::write_to(&security_types, &mut client_stream)?;
 
                 security_types.0
             }
@@ -89,13 +76,9 @@ impl Proxy {
         let used_security_type = match client_version {
             protocol::Version::Rfb33 => security_types[0],
             _ => {
-                let used_security_type =
-                    protocol::SecurityType::read_from(&mut client_stream)?;
+                let used_security_type = protocol::SecurityType::read_from(&mut client_stream)?;
                 debug!("c->s SecurityType::{:?}", used_security_type);
-                protocol::SecurityType::write_to(
-                    &used_security_type,
-                    &mut server_stream
-                )?;
+                protocol::SecurityType::write_to(&used_security_type, &mut server_stream)?;
 
                 used_security_type
             }
@@ -113,10 +96,7 @@ impl Proxy {
         if !skip_security_result {
             let security_result = protocol::SecurityResult::read_from(&mut server_stream)?;
             debug!("c<-s SecurityResult::{:?}", security_result);
-            protocol::SecurityResult::write_to(
-                &security_result,
-                &mut client_stream
-            )?;
+            protocol::SecurityResult::write_to(&security_result, &mut client_stream)?;
 
             if security_result == protocol::SecurityResult::Failed {
                 match client_version {
@@ -135,17 +115,11 @@ impl Proxy {
 
         let client_init = protocol::ClientInit::read_from(&mut client_stream)?;
         debug!("c->s {:?}", client_init);
-        protocol::ClientInit::write_to(
-            &client_init,
-            &mut server_stream
-        )?;
+        protocol::ClientInit::write_to(&client_init, &mut server_stream)?;
 
         let server_init = protocol::ServerInit::read_from(&mut server_stream)?;
         debug!("c<-s {:?}", server_init);
-        protocol::ServerInit::write_to(
-            &server_init,
-            &mut client_stream
-        )?;
+        protocol::ServerInit::write_to(&server_init, &mut client_stream)?;
 
         let (mut c2s_server_stream, mut c2s_client_stream) = (
             server_stream.try_clone().unwrap(),
@@ -209,13 +183,9 @@ impl Proxy {
                 match message {
                     protocol::S2C::FramebufferUpdate { count } => {
                         for _ in 0..count {
-                            let rectangle =
-                                protocol::RectangleHeader::read_from(server_stream)?;
+                            let rectangle = protocol::RectangleHeader::read_from(server_stream)?;
                             debug!("c<-s {:?}", rectangle);
-                            protocol::RectangleHeader::write_to(
-                                &rectangle,
-                                &mut buffer_stream
-                            )?;
+                            protocol::RectangleHeader::write_to(&rectangle, &mut buffer_stream)?;
 
                             match rectangle.encoding {
                                 protocol::Encoding::Raw => {
@@ -230,13 +200,9 @@ impl Proxy {
                                     buffer_stream.write_all(&pixels)?;
                                 }
                                 protocol::Encoding::CopyRect => {
-                                    let copy_rect =
-                                        protocol::CopyRect::read_from(server_stream)?;
+                                    let copy_rect = protocol::CopyRect::read_from(server_stream)?;
                                     debug!("c<-s {:?}", copy_rect);
-                                    protocol::CopyRect::write_to(
-                                        &copy_rect,
-                                        &mut buffer_stream
-                                    )?;
+                                    protocol::CopyRect::write_to(&copy_rect, &mut buffer_stream)?;
                                 }
                                 protocol::Encoding::Zrle => {
                                     let zrle = Vec::<u8>::read_from(server_stream)?;

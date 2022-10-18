@@ -279,10 +279,7 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
     ///
     /// Panics if length of pixel data does not match rectangle size.
     pub fn add_raw_pixels(&mut self, rect: protocol::Rect, pixel_data: &'a [u8]) -> &mut Self {
-        let update = Update::Raw {
-            rect,
-            pixel_data,
-        };
+        let update = Update::Raw { rect, pixel_data };
 
         update.check(self.validation_data);
         self.updates.push(update);
@@ -317,10 +314,7 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
         rect: protocol::Rect,
         zlib_data: &'a [u8],
     ) -> &mut Self {
-        let update = Update::Zrle {
-            rect,
-            zlib_data,
-        };
+        let update = Update::Zrle { rect, zlib_data };
 
         update.check(self.validation_data);
         self.updates.push(update);
@@ -353,10 +347,7 @@ impl<'a, 'b> FramebufferUpdateBuilder<'a, 'b> {
 
     /// Adds notification about framebuffer resize.
     pub fn add_desktop_size(&mut self, width: u16, height: u16) -> &mut Self {
-        let update = Update::DesktopSize {
-            width,
-            height,
-        };
+        let update = Update::DesktopSize { width, height };
 
         update.check(self.validation_data);
         self.updates.push(update);

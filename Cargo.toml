@@ -12,6 +12,7 @@ description = "An implementation of VNC protocol, client state machine, a client
 [features]
 #apple-auth = ["num-bigint","octavo", "rust-crypto"]
 apple-auth = ["num-bigint", "rust-crypto"]
+transpose-rects = []
 
 [dependencies]
 log = "0.4.17"

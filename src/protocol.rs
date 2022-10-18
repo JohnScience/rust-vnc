@@ -434,10 +434,7 @@ impl Message for C2S {
                 let down = reader.read_u8()? != 0;
                 reader.read_exact(&mut [0u8; 2])?;
                 let key = reader.read_u32::<BigEndian>()?;
-                Ok(C2S::KeyEvent {
-                    down,
-                    key,
-                })
+                Ok(C2S::KeyEvent { down, key })
             }
             5 => Ok(C2S::PointerEvent {
                 button_mask: reader.read_u8()?,
