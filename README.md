@@ -4,9 +4,11 @@ rust-vnc
 _vnc_ is a crate implementing the VNC protocol and the client
 state machine. There are also two crates using it:
 
-  * A fully functional VNC client based on SDL2, _vnc-client_;
-  > This comes with the requirement to [link against SDL2 static libraries and possibly a dynamic library](https://github.com/Rust-SDL2/rust-sdl2#requirements).
-  * A buffering VNC proxy, _vnc-proxy_.
+* A fully functional VNC client based on SDL2, _vnc-client_;
+
+> This comes with the requirement to [link against SDL2 static libraries and possibly a dynamic library](https://github.com/Rust-SDL2/rust-sdl2#requirements).
+
+* A buffering VNC proxy, _vnc-proxy_.
 
 The VNC client has special hacks to work around the bugs in the VNC server
 used in QEMU (and Xen HVM) and a hack to battle [transposed rectangles problem](https://i.imgur.com/l5nEhU4.png).
@@ -70,10 +72,9 @@ Why not?
 I didn't really intend to write this library at all, and as such it has
 some drawbacks:
 
-  * No server state machine.
-  * No encryption or authentication.
-  * No inline documentation (but the [signatures][doc] and the [client][]
-    could be helpful already).
+* No server state machine.
+* No encryption or authentication.
+* No inline documentation (but the [signatures][doc] and the [client][] could be helpful already).
 
 That said, the library was written with the full VNC protocol in mind,
 and it should be straightforward to extend the library to support
