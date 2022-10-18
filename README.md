@@ -9,7 +9,7 @@ state machine. There are also two crates using it:
   * A buffering VNC proxy, _vnc-proxy_.
 
 The VNC client has special hacks to work around the bugs in the VNC server
-used in QEMU (and Xen HVM) and a hack to battle ![transposed rectangles problem](https://i.imgur.com/l5nEhU4.png).
+used in QEMU (and Xen HVM) and a hack to battle [transposed rectangles problem](https://i.imgur.com/l5nEhU4.png).
 
 How?
 ----
